@@ -1,5 +1,5 @@
 // components/shared/ResourcePage.tsx
-import React, { useState } from "react";
+import { useState } from "react";
 import ResourceBody from "./ResourceBody";
 import ResourceFooter from "./ResourceFooter";
 import ResourceHeader from "./ResourceHeader";
@@ -15,7 +15,6 @@ export default function ResourcePage({
   // ngữ cảnh & callback
   setEditUser,
   setIsOpen,
-  type,
   onAdd,
   onRowClick,
 }: any) {

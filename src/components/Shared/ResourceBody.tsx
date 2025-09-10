@@ -1,5 +1,4 @@
 // components/shared/ResourceBody.tsx
-import React from "react";
 import ResourceBodyInfo from "./ResourceBodyInfo";
 import ResourceBodyTable from "./ResourceBodyTable";
 
