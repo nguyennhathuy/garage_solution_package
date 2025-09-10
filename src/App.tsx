@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
-import { MODULE_LIST } from "./constants";
 import { ModalForm, type FieldConfig } from "./components/ModalForm";
 import type { User } from "./types";
 import { AnimatePresence, motion } from "framer-motion";
@@ -17,12 +16,9 @@ import { MODULE_CONFIGS } from "./components/Shared/moduleConfigs";
 import ResourcePage from "./components/Shared/ResourcePage";
 // import FormRenderer from "./components/Modal/FormRenderer";
 import { DVTSchema, kiemKeSchema, NCCSchema, nhapKhoSchema, tonKhoSchema, xuatKhoSchema } from "./components/Modal/Modal.constant";
-import ProductServiceModal from "./components/Modal/ModalTest";
 import FormRendererPro, { DVTSchemaV2, productServiceSchema } from "./components/Modal/FormRendererPro";
 import { IoHome } from "react-icons/io5";
-import { FaBoxOpen, FaCameraRetro, FaCar, FaChartPie, FaClipboardCheck, FaCogs, FaDatabase, FaFileExport, FaHandshake, FaListUl, FaShoppingCart, FaUsers, FaWarehouse } from "react-icons/fa";
-import { TbPackageImport } from "react-icons/tb";
-import { MdOutlineProductionQuantityLimits } from "react-icons/md";
+import { FaBoxOpen, FaCar, FaChartPie, FaCogs, FaHandshake, FaListUl, FaShoppingCart, FaUsers, FaWarehouse } from "react-icons/fa";
 import UnderConstruction from "./components/UnderConstruction/UnderConstruction";
 
 // type Mode = "create" | "edit";
@@ -356,11 +352,6 @@ export default function App() {
     }
   };
 
-  // const handleChangeCurrentPage = (page: string) => {
-  //   setCurrentPage(page);
-  //   setType(page); // bạn đang sử dụng type ở Page5S
-  // };
-
   // ——— Render trang theo currentPage
   const renderPage = () => {
     if (MODULE_CONFIGS[currentPage]) {
@@ -640,16 +631,6 @@ export default function App() {
 
           <main className="flex-1 overflow-y-auto overflow-x-hidden pl-[10px] pr-[10px] bg-white">
             {renderPage()}
-
-            {/* Ví dụ nút mở modal product (demo) */}
-            {/* <div className="p-4">
-              <button
-                className="px-3 py-2 bg-green-600 text-white rounded-lg"
-                onClick={() => openCreate("product")}
-              >
-                Thêm sản phẩm (demo)
-              </button>
-            </div> */}
           </main>
         </div>
       </div>
@@ -678,14 +659,6 @@ export default function App() {
             return <div className="text-red-600">Chưa khai báo schema cho "{modalState.form}"</div>;
           }
           return (
-            // <FormRenderer
-            //   key={`${modalState.form}-${modalState.mode}-${modalState.initialData?.id ?? "new"}`} // đảm bảo remount khi đổi form/mode
-            //   schema={activeSchema}
-            //   initialData={modalState.initialData}
-            //   mode={modalState.mode}
-            //   onSubmit={handleSubmitDynamic}
-            //   submitLabel={modalState.mode === "create" ? "Thêm mới" : "Cập nhật"}
-            // />
             <FormRendererPro
               key={`${modalState.form}-${modalState.mode}-${modalState.initialData?.id ?? "new"}`}
               schema={activeSchema}
@@ -698,16 +671,6 @@ export default function App() {
           );
         })()}
       </Modal>
-
-
-      {/* <ProductServiceModal
-        isOpen={open}
-        onClose={() => setOpen(false)}
-        onSave={(data: any) => {
-          console.log("saved:", data);
-          setOpen(false);
-        }}
-      /> */}
     </>
   );
 }

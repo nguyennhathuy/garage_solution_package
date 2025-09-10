@@ -100,8 +100,8 @@ export default function ProductServiceModal({
 
   const handleInput = (e: any) =>
     setForm((s: any) => ({ ...s, [e.target.name]: e.target.value }));
-  const handleCheck = (e: any) =>
-    setForm((s: any) => ({ ...s, [e.target.name]: e.target.checked }));
+  // const handleCheck = (e: any) =>
+  //   setForm((s: any) => ({ ...s, [e.target.name]: e.target.checked }));
 
   const toggle = (key: typeof activeNav) => setOpen((s: any) => ({ ...s, [key]: !s[key] }));
 
@@ -123,21 +123,21 @@ export default function ProductServiceModal({
   const handleReset = () => setForm({ ...defaultForm });
   const handleSave = () => onSave?.(form);
 
-  const pickImage = (idx: number) => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = "image/*";
-    input.onchange = () => {
-      const file = input.files?.[0];
-      if (!file) return;
-      setForm((s: any) => {
-        const next = [...(s.images || [])];
-        next[idx] = file;
-        return { ...s, images: next };
-      });
-    };
-    input.click();
-  };
+  // const pickImage = (idx: number) => {
+  //   const input = document.createElement("input");
+  //   input.type = "file";
+  //   input.accept = "image/*";
+  //   input.onchange = () => {
+  //     const file = input.files?.[0];
+  //     if (!file) return;
+  //     setForm((s: any) => {
+  //       const next = [...(s.images || [])];
+  //       next[idx] = file;
+  //       return { ...s, images: next };
+  //     });
+  //   };
+  //   input.click();
+  // };
 
   if (!isOpen) return null;
 
@@ -729,14 +729,14 @@ function Field({ label, children }: { label: React.ReactNode; children: React.Re
   );
 }
 
-function Check({ name, checked, onChange, label }: Any) {
-  return (
-    <label className="inline-flex items-center gap-2 text-sm text-gray-900 cursor-pointer">
-      <input type="checkbox" name={name} checked={checked} onChange={onChange} className="h-4 w-4" />
-      <span>{label}</span>
-    </label>
-  );
-}
+// function Check({ name, checked, onChange, label }: Any) {
+//   return (
+//     <label className="inline-flex items-center gap-2 text-sm text-gray-900 cursor-pointer">
+//       <input type="checkbox" name={name} checked={checked} onChange={onChange} className="h-4 w-4" />
+//       <span>{label}</span>
+//     </label>
+//   );
+// }
 
 function Chevron({ open }: { open: boolean }) {
   return (

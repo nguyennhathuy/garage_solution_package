@@ -1,9 +1,7 @@
-import React from "react";
 import { motion } from "framer-motion";
 import { FaWrench, FaRegLightbulb } from "react-icons/fa";
 
 const UnderConstruction = ({ page, hint, onBackHome }: any) => {
-  const progress = 35; // có thể đổi số % tuỳ ý
 
   return (
     <div className="flex items-center justify-center h-[calc(100vh-50px)] p-6">

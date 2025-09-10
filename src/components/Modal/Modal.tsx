@@ -3,13 +3,13 @@ import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 
-const Modal: React.FC<any> = ({ isOpen, onClose, title, children, mode }) => {
-  const headerBg =
-    mode === "create"
-      ? "bg-green-100 text-green-800"
-      : mode === "edit"
-        ? "bg-yellow-100 text-yellow-800"
-        : "bg-gray-100 text-gray-800";
+const Modal: React.FC<any> = ({ isOpen, onClose, title, children }) => {
+  // const headerBg =
+  //   mode === "create"
+  //     ? "bg-green-100 text-green-800"
+  //     : mode === "edit"
+  //       ? "bg-yellow-100 text-yellow-800"
+  //       : "bg-gray-100 text-gray-800";
 
   return (
     <AnimatePresence>
