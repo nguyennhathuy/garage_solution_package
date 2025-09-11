@@ -87,6 +87,45 @@ const DateField = ({ label, value, onChange, error }: any) => (
     </div>
 );
 
+const RadioField = ({ label, value, onChange, options = [] }: any) => {
+    const cols = options.length;
+    const gridStyle = { gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))` } as any;
+    return (
+        <div>
+            {label && <label className="block text-xs text-gray-600 mb-1">{label}</label>}
+            <div className="grid gap-2" style={gridStyle}>
+                {options.map((opt: any) => (
+                    <label
+                        key={String(opt.value)}
+                        className="flex items-center gap-2 text-sm text-gray-900 cursor-pointer"
+                    >
+                        <input
+                            type="radio"
+                            className="h-4 w-4"
+                            value={opt.value}
+                            checked={value === opt.value}
+                            onChange={() => onChange(opt.value)}
+                        />
+                        <span>{opt.label}</span>
+                    </label>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+const DateTimeField = ({ label, value, onChange, error }: any) => (
+    <div>
+        {label && <label className="block text-xs text-gray-600 mb-1">{label}</label>}
+        <input
+            type="datetime-local"
+            className={`w-full rounded-lg border px-3 py-2 text-sm ${error ? "border-red-400" : "border-gray-300"}`}
+            value={value ?? ""}
+            onChange={(e) => onChange(e.target.value)}
+        />
+    </div>
+);
+
 const ImagesField = ({ label, value = [], onChange, slots = 6 }: any) => {
     const pickImage = (idx: number) => {
         const input = document.createElement("input");
@@ -146,6 +185,8 @@ const FIELD_MAP: any = {
     checkbox: CheckboxField,
     date: DateField,
     images: ImagesField,
+    radio: RadioField,
+    datetime: DateTimeField,
 };
 
 // ===== Small UI helpers =====
@@ -434,12 +475,17 @@ export const productServiceSchema: any = {
         lockSalePrice: false,
         vatApplied: true,
         images: [],
+        promoStart: null,
+        promoEnd: null,
     },
     validate: (v: any) => {
         const err: any = {};
         if (!v.name || !v.name.trim()) err.name = "Vui lòng nhập tên SP, DV";
         if (!v.unit) err.unit = "Vui lòng chọn đơn vị tính";
         if (Object.keys(err).length) throw err;
+        if (v.promoStart && v.promoEnd && new Date(v.promoEnd) < new Date(v.promoStart)) {
+            err.promoEnd = "Thời điểm kết thúc khuyến mãi phải sau ngày bắt đầu";
+        }
     },
     serialize: (v: any) => ({
         code: v.code?.trim() || null,
@@ -485,6 +531,24 @@ export const productServiceSchema: any = {
         // images: xử lý upload riêng nếu cần
     }),
     sections: [
+        {
+            key: "type",
+            title: "Tính chất",
+            cols: 1,
+            fields: [
+                {
+                    name: "loai_hang",
+                    label: "Loại hàng",
+                    type: "radio",
+                    options: [
+                        { label: "Dịch vụ", value: "service" },
+                        { label: "Phụ tùng", value: "parts" },
+                        { label: "Vật tư", value: "materials" },
+                        { label: "Văn phòng phẩm", value: "office" },
+                    ],
+                },
+            ],
+        },
         {
             key: "info",
             title: "Thông tin chính",
@@ -540,6 +604,8 @@ export const productServiceSchema: any = {
                 },
                 { type: "text", name: "origin", label: "Xuất xứ" },
                 { type: "text", name: "brand", label: "Thương hiệu" },
+                { type: "date", name: "promoStart", label: "Ngày bắt đầu khuyến mãi" },
+                { type: "datetime", name: "promoEnd", label: "Thời điểm kết thúc khuyến mãi" },
             ],
         },
         {
