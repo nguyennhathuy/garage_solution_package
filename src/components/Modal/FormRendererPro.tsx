@@ -23,7 +23,7 @@ const NumberField = ({ label, value, onChange, placeholder, suffix, error }: any
             <input
                 type="number"
                 inputMode="decimal"
-                className={`w-full rounded-lg border px-3 py-2 pr-14 text-sm ${error ? "border-red-400" : "border-gray-300"}`}
+                className={`w-full rounded-lg border px-3 py-2 ${suffix ? "pr-14" : ""} text-sm ${error ? "border-red-400" : "border-gray-300"}`}
                 value={value ?? ""}
                 onChange={(e) => onChange(e.target.value === "" ? "" : Number(e.target.value))}
                 placeholder={placeholder}
@@ -467,72 +467,43 @@ export const productServiceSchema: any = {
     title: "Sản phẩm & Dịch vụ",
     theme: { flashColor: "rgb(0,140,255)" },
     defaults: {
-        isService: false,
+        loai_hang: "",
+        muc_dich: "",
+        code: "",
+        name: "",
+        unit: "",
+        gia_ban: "",
+        gia_von: "",
+        thoi_gian_chuan: "",
+        group_service: "",
         isQuickSell: false,
-        trackStock: false,
-        basePriceExcludesVAT: false,
-        isActive: true,
         lockSalePrice: false,
-        vatApplied: true,
-        images: [],
-        promoStart: null,
-        promoEnd: null,
+        isActive: true,
+        images: []
     },
     validate: (v: any) => {
         const err: any = {};
         if (!v.name || !v.name.trim()) err.name = "Vui lòng nhập tên SP, DV";
         if (!v.unit) err.unit = "Vui lòng chọn đơn vị tính";
         if (Object.keys(err).length) throw err;
-        if (v.promoStart && v.promoEnd && new Date(v.promoEnd) < new Date(v.promoStart)) {
-            err.promoEnd = "Thời điểm kết thúc khuyến mãi phải sau ngày bắt đầu";
-        }
     },
     serialize: (v: any) => ({
+        loai_hang: v.loai_hang || null,
+        muc_dich: v.muc_dich || null,
         code: v.code?.trim() || null,
         name: v.name?.trim(),
-        unit_id: v.unit || null,
-        barcode: v.barcode?.trim() || null,
-        group_id: v.group || null,
-        material_type: v.materialType || null,
-        base_price: v.basePrice === "" ? null : Number(v.basePrice),
-        cost_price: v.costPrice === "" ? null : Number(v.costPrice),
-        tax_rate: v.taxRate === "" ? null : Number(v.taxRate),
-        origin: v.origin || null,
-        brand: v.brand || null,
-
-        is_service: !!v.isService,
+        unit: v.unit || null,
+        gia_ban: v.gia_ban === "" ? null : Number(v.gia_ban),
+        gia_von: v.gia_von === "" ? null : Number(v.gia_von),
+        thoi_gian_chuan: v.thoi_gian_chuan || null,
+        group_service: v.group_service || null,
         is_quick_sell: !!v.isQuickSell,
-        track_stock: !!v.trackStock,
-        base_price_excludes_vat: !!v.basePriceExcludesVAT,
-        is_active: !!v.isActive,
         lock_sale_price: !!v.lockSalePrice,
-
-        sku: v.sku || null,
-        location: v.location || null,
-        shelf: v.shelf || null,
-        min_qty: v.minQty === "" ? null : Number(v.minQty),
-        max_qty: v.maxQty === "" ? null : Number(v.maxQty),
-        low_stock_alert: !!v.lowStockAlert,
-
-        retail_price: v.retailPrice === "" ? null : Number(v.retailPrice),
-        wholesale_price: v.wholesalePrice === "" ? null : Number(v.wholesalePrice),
-        discount_percent: v.discountPercent === "" ? null : Number(v.discountPercent),
-        vat_applied: !!v.vatApplied,
-        promo_start: v.promoStart || null,
-        promo_end: v.promoEnd || null,
-
-        color: v.color || null,
-        size: v.size || null,
-        capacity: v.capacity || null,
-
-        description: v.description || null,
-        internal_note: v.internalNote || null,
-
-        // images: xử lý upload riêng nếu cần
+        is_active: !!v.isActive,
     }),
     sections: [
         {
-            key: "type",
+            key: "tinh_chat",
             title: "Tính chất",
             cols: 1,
             fields: [
@@ -550,62 +521,80 @@ export const productServiceSchema: any = {
             ],
         },
         {
+            key: "muc_dich",
+            title: "Mục đích sử dụng",
+            cols: 1,
+            fields: [
+                {
+                    name: "muc_dich",
+                    label: "Mục đích",
+                    type: "radio",
+                    options: [
+                        { label: "Bán cho khách", value: "ban_cho_khach" },
+                        { label: "Mua để bán lại", value: "mua_de_ban_lai" },
+                        { label: "Mua dùng nội bộ", value: "mua_dung_noi_bo" },
+                        { label: "Bán lẻ", value: "ban_le" },
+                        { label: "Tiêu hao", value: "tieu_hao" },
+                        { label: "Cả hai", value: "ca_hai" },
+                        { label: "Hàng để bán", value: "hang_de_ban" },
+                        { label: "Hàng ký gửi", value: "hang_ky_gui" },
+                    ],
+                },
+            ],
+        },
+        {
             key: "info",
-            title: "Thông tin chính",
+            title: "Thông tin chung",
             cols: 3,
             fields: [
-                { type: "text", name: "code", label: "Mã SP, DV", placeholder: "Nhập hoặc tạo tự động" },
-                { type: "text", name: "name", label: <>Tên SP, DV <span className='text-red-500'>*</span></> },
+                //dịch vụ, vật tư, phụ tùng
+                { type: "text", name: "code", label: "Mã dịch vụ" },
+                { type: "text", name: "name", label: <>Tên dịch vụ <span className='text-red-500'>*</span></> },
                 {
                     type: "select",
-                    name: "unit",
+                    name: "dvt",
                     label: <>Đơn vị tính <span className='text-red-500'>*</span></>,
-                    // lấy từ bảng units
-                    options: async () => {
-                        const { data, error } = await supabase.from("units").select("id,name").order("name");
-                        if (error) throw error;
-                        return (data || []).map((r: any) => ({ label: r.name, value: r.id }));
-                    },
+                    options: [
+                        { label: "Cái", value: "cai" },
+                        { label: "Kg", value: "kg" },
+                        { label: "Thùng", value: "thung" },
+                        { label: "Bao", value: "bao" },
+                    ],
                 },
-                { type: "text", name: "barcode", label: "Mã vạch", placeholder: "Nhập mã vạch (nếu có)" },
+                { type: "number", name: "gia_ban", label: "Giá bán (chưa VAT)", placeholder: "0", suffix: "VND" },
+                { type: "number", name: "gia_von", label: "Giá nhập", placeholder: "0", suffix: "VND" },
+                { type: "datetime", name: "thoi_gian_chuan", label: "Thời gian chuẩn" },
                 {
                     type: "select",
-                    name: "group",
-                    label: "Nhóm SP, DV",
-                    options: async () => {
-                        const { data, error } = await supabase.from("item_groups").select("id,name").order("name");
-                        if (error) throw error;
-                        return (data || []).map((r: any) => ({ label: r.name, value: r.id }));
-                    },
+                    name: "nhom_dich_vu",
+                    label: "Nhóm dịch vụ",
+                    options: [
+                        { label: "Dịch vụ", value: "service" },
+                        { label: "Sản phẩm bán", value: "product" },
+                        { label: "Công cụ dụng cụ", value: "tool" },
+                    ],
                 },
                 {
                     type: "select",
-                    name: "materialType",
+                    name: "nhom_vat_tu",
+                    label: "Nhóm vật tư",
+                    options: [
+                        { label: "Nhóm vật tư test", value: "Nhóm vật tư test" },
+                        { label: "Nhóm vật tư test", value: "Nhóm vật tư test" },
+                        { label: "Nhóm vật tư test", value: "Nhóm vật tư test" },
+                    ],
+                },
+                {
+                    type: "select",
+                    name: "nhom_vat_tu",
                     label: "Loại vật tư",
                     options: [
-                        { label: "Nguyên vật liệu", value: "nguyen_vat_lieu" },
-                        { label: "Phụ tùng", value: "phu_tung" },
-                        { label: "Công cụ dụng cụ", value: "cong_cu_dung_cu" },
-                        { label: "Hàng hóa", value: "hang_hoa" },
+                        { label: "Loại vật tư test", value: "Loại vật tư test" },
+                        { label: "Loại vật tư test", value: "Loại vật tư test" },
+                        { label: "Loại vật tư test", value: "Loại vật tư test" },
                     ],
                 },
-                { type: "number", name: "basePrice", label: "Giá bán gốc", placeholder: "0", suffix: "VND" },
-                { type: "number", name: "costPrice", label: "Giá vốn", placeholder: "0", suffix: "VND" },
-                {
-                    type: "select",
-                    name: "taxRate",
-                    label: "Thuế suất",
-                    options: [
-                        { label: "0%", value: 0 },
-                        { label: "5%", value: 5 },
-                        { label: "8%", value: 8 },
-                        { label: "10%", value: 10 },
-                    ],
-                },
-                { type: "text", name: "origin", label: "Xuất xứ" },
-                { type: "text", name: "brand", label: "Thương hiệu" },
-                { type: "date", name: "promoStart", label: "Ngày bắt đầu khuyến mãi" },
-                { type: "datetime", name: "promoEnd", label: "Thời điểm kết thúc khuyến mãi" },
+                { type: "number", name: "ton_kho_toi_thieu_thong_tin", label: "Tồn kho tối thiểu", placeholder: "0", suffix: null },
             ],
         },
         {
@@ -613,12 +602,10 @@ export const productServiceSchema: any = {
             title: "Thiết lập",
             cols: 3,
             fields: [
-                { type: "checkbox", name: "isService", label: "Là dịch vụ" },
-                { type: "checkbox", name: "isQuickSell", label: "Sản phẩm bán nhanh" },
-                { type: "checkbox", name: "trackStock", label: "Theo dõi tồn kho" },
-                { type: "checkbox", name: "basePriceExcludesVAT", label: "Giá gốc chưa bao gồm VAT" },
-                { type: "checkbox", name: "isActive", label: "Còn hoạt động" },
+                { type: "checkbox", name: "isQuickSell", label: "Bán nhanh" },
                 { type: "checkbox", name: "lockSalePrice", label: "Không sửa giá bán" },
+                { type: "checkbox", name: "isActive", label: "Còn sử dụng" },
+                { type: "checkbox", name: "ton_kho_toi_thieu_thiet_lap", label: "Tồn kho tối thiểu" },
             ],
         },
         {
@@ -626,7 +613,7 @@ export const productServiceSchema: any = {
             title: "Hình ảnh",
             cols: 6,
             fields: [{ type: "images", name: "images", label: "Hình ảnh (tối đa 6)", slots: 6, colSpan: 6 }],
-        }
+        },
     ],
 };
 
