@@ -1,5 +1,5 @@
 // components/Modal/FormRendererPro.tsx
-import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
 // ===== Field components (simple, tailwind-only) =====
@@ -558,7 +558,6 @@ export const productServiceSchema: any = {
                         { label: "Văn phòng phẩm", value: "office" },
                     ],
                     onChange: (_val: any, _values: any, setValue: any) => {
-                        console.log('changeeeeeeeeee');
                         const resetToEmpty = [
                             "muc_dich",
                             "code", "name", "dvt",
