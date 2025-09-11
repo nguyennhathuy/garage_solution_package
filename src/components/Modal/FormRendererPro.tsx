@@ -188,6 +188,60 @@ const FIELD_MAP: any = {
     radio: RadioField,
     datetime: DateTimeField,
 };
+const resolve = (fnOrVal: any, values: any) =>
+  typeof fnOrVal === "function" ? fnOrVal(values) : fnOrVal;
+// Responsible for rendering a single field configuration
+const FieldRenderer = ({ field, values, setValue, errors }: any) => {
+  const Comp = FIELD_MAP[field?.type];
+  const [opts, setOpts] = useState<any>(Array.isArray(field?.options) ? field.options : []);
+
+  // khóa phụ thuộc options
+  const depKey = JSON.stringify((field?.dependsOn || []).map((k: string) => values[k]));
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      if (typeof field?.options === "function") {
+        try {
+          const res = await field.options(values);
+          if (active) setOpts(res ?? []);
+        } catch (e) {
+          console.error(`[options:${field?.name}]`, e);
+        }
+      }
+    })();
+    return () => { active = false; };
+  }, [depKey]); // ✅ gọn
+
+  if (!field || !Comp) return null;
+  if (typeof field.visibleWhen === "function" && !field.visibleWhen(values)) return null;
+
+  const common = {
+    label: resolve(field.label, values),
+    value: values[field.name],
+    onChange: (v: any) => {
+      setValue(field.name, v);
+      field.onChange?.(v, values, setValue);
+    },
+    placeholder: resolve(field.placeholder, values),
+    options: opts,
+    rows: field.rows,
+    suffix: resolve(field.suffix, values),
+    checked: !!values[field.name],
+    error: errors[field.name],
+  };
+
+  const colSpan = resolve(field.colSpan, values);
+  const colSpanClass = colSpan ? `md:col-span-${colSpan}` : "";
+
+  return (
+    <div className={colSpanClass}>
+      <Comp {...common} />
+      {errors[field.name] && (
+        <div className="mt-1 text-xs text-red-600">{errors[field.name]}</div>
+      )}
+    </div>
+  );
+};
 
 // ===== Small UI helpers =====
 const Chevron = ({ open }: any) => (
@@ -327,64 +381,8 @@ export default function FormRendererPro({
         flashTimers.current[key] = setTimeout(() => setFlash((s: any) => ({ ...s, [key]: false })), 500);
     };
 
-    const renderField = (f: any) => {
-        if (!f) return null;
-        const Comp = FIELD_MAP[f.type];
-        if (!Comp) return null;
-
-        // visibleWhen support
-        if (typeof f.visibleWhen === "function" && !f.visibleWhen(values)) return null;
-
-        // dynamic options support (function)
-        const [opts, setOpts] = useState<any>(Array.isArray(f.options) ? f.options : []);
-        useEffect(() => {
-            let active = true;
-            const load = async () => {
-                if (typeof f.options === "function") {
-                    try {
-                        const res = await f.options(values);
-                        if (active) setOpts(res ?? []);
-                    } catch (e) {
-                        console.error(`[options:${f.name}]`, e);
-                    }
-                }
-            };
-            load();
-            return () => {
-                active = false;
-            };
-            // re-run if dependencies defined
-            // eslint-disable-next-line react-hooks/exhaustive-deps
-        }, [JSON.stringify(f.dependsOn ? f.dependsOn.map((k: string) => values[k]) : [])]);
-
-        const common = {
-            label: f.label,
-            value: values[f.name],
-            onChange: (v: any) => {
-                setValue(f.name, v);
-                f.onChange?.(v, values, setValue);
-            },
-            placeholder: f.placeholder,
-            options: opts,
-            rows: f.rows,
-            suffix: f.suffix,
-            checked: !!values[f.name],
-            error: errors[f.name],
-        };
-
-        // Layout: support colSpan like old renderer
-        const colSpanClass = f.colSpan ? `md:col-span-${f.colSpan}` : "";
-
-        return (
-            <div key={f.name} className={colSpanClass}>
-                <Comp {...common} />
-                {errors[f.name] && <div className="mt-1 text-xs text-red-600">{errors[f.name]}</div>}
-            </div>
-        );
-    };
 
     const handleReset = () => setValues({ ...defaults });
-
     return (
         <div className="flex h-full min-h-0 flex-col">
             {/* Top alert */}
@@ -423,7 +421,15 @@ export default function FormRendererPro({
                                 flashColor={schema?.theme?.flashColor}
                             >
                                 <div className="grid grid-cols-1 gap-3" style={gridStyle}>
-                                    {s.fields?.map((f: any) => renderField(f))}
+                                    {s.fields?.map((f: any) => (
+                                        <FieldRenderer
+                                            key={f.name}
+                                            field={f}
+                                            values={values}
+                                            setValue={setValue}
+                                            errors={errors}
+                                        />
+                                    ))}
                                 </div>
                             </Accordion>
                         );
@@ -471,11 +477,17 @@ export const productServiceSchema: any = {
         muc_dich: "",
         code: "",
         name: "",
-        unit: "",
+        dvt: "",
         gia_ban: "",
         gia_von: "",
         thoi_gian_chuan: "",
         group_service: "",
+        nhom_dich_vu: "",
+        nhom_vat_tu: "",
+        nhom_phu_tung: "",
+        loai_vat_tu: "",
+        loai_phu_tung: "",
+        ton_kho_toi_thieu: "",
         isQuickSell: false,
         lockSalePrice: false,
         isActive: true,
@@ -484,7 +496,7 @@ export const productServiceSchema: any = {
     validate: (v: any) => {
         const err: any = {};
         if (!v.name || !v.name.trim()) err.name = "Vui lòng nhập tên SP, DV";
-        if (!v.unit) err.unit = "Vui lòng chọn đơn vị tính";
+        if (!v.dvt) err.dvt = "Vui lòng chọn đơn vị tính";
         if (Object.keys(err).length) throw err;
     },
     serialize: (v: any) => ({
@@ -492,11 +504,20 @@ export const productServiceSchema: any = {
         muc_dich: v.muc_dich || null,
         code: v.code?.trim() || null,
         name: v.name?.trim(),
-        unit: v.unit || null,
+        dvt: v.dvt || null,
         gia_ban: v.gia_ban === "" ? null : Number(v.gia_ban),
         gia_von: v.gia_von === "" ? null : Number(v.gia_von),
         thoi_gian_chuan: v.thoi_gian_chuan || null,
         group_service: v.group_service || null,
+        nhom_dich_vu: v.nhom_dich_vu || null,
+        nhom_vat_tu: v.nhom_vat_tu || null,
+        nhom_phu_tung: v.nhom_phu_tung || null,
+        loai_vat_tu: v.loai_vat_tu || null,
+        loai_phu_tung: v.loai_phu_tung || null,
+        ton_kho_toi_thieu:
+            v.ton_kho_toi_thieu === "" || v.ton_kho_toi_thieu === undefined
+                ? null
+                : Number(v.ton_kho_toi_thieu),
         is_quick_sell: !!v.isQuickSell,
         lock_sale_price: !!v.lockSalePrice,
         is_active: !!v.isActive,
@@ -529,16 +550,37 @@ export const productServiceSchema: any = {
                     name: "muc_dich",
                     label: "Mục đích",
                     type: "radio",
-                    options: [
-                        { label: "Bán cho khách", value: "ban_cho_khach" },
-                        { label: "Mua để bán lại", value: "mua_de_ban_lai" },
-                        { label: "Mua dùng nội bộ", value: "mua_dung_noi_bo" },
-                        { label: "Bán lẻ", value: "ban_le" },
-                        { label: "Tiêu hao", value: "tieu_hao" },
-                        { label: "Cả hai", value: "ca_hai" },
-                        { label: "Hàng để bán", value: "hang_de_ban" },
-                        { label: "Hàng ký gửi", value: "hang_ky_gui" },
-                    ],
+                    options: (values: any) => {
+                        const mapping: Record<string, { label: string; value: string }[]> = {
+                            service: [
+                                { label: "Bán cho khách", value: "ban_cho_khach" },
+                                { label: "Mua để bán lại", value: "mua_de_ban_lai" },
+                                { label: "Mua dùng nội bộ", value: "mua_dung_noi_bo" },
+                            ],
+                            parts: [
+                                { label: "Hàng để bán", value: "hang_de_ban" },
+                                { label: "Hàng ký gửi", value: "hang_ky_gui" },
+                            ],
+                            materials: [
+                                { label: "Bán lẻ", value: "ban_le" },
+                                { label: "Tiêu hao (dùng cho dịch vụ)", value: "tieu_hao" },
+                                { label: "Cả hai", value: "ca_hai" },
+                            ],
+                            office: [
+                            ],
+                        };
+                        return mapping[values.loai_hang] || [
+                            { label: "Bán cho khách", value: "ban_cho_khach" },
+                            { label: "Mua để bán lại", value: "mua_de_ban_lai" },
+                            { label: "Mua dùng nội bộ", value: "mua_dung_noi_bo" },
+                            { label: "Bán lẻ", value: "ban_le" },
+                            { label: "Tiêu hao", value: "tieu_hao" },
+                            { label: "Cả hai", value: "ca_hai" },
+                            { label: "Hàng để bán", value: "hang_de_ban" },
+                            { label: "Hàng ký gửi", value: "hang_ky_gui" },
+                        ];
+                    },
+                    dependsOn: ["loai_hang"],
                 },
             ],
         },
@@ -547,23 +589,86 @@ export const productServiceSchema: any = {
             title: "Thông tin chung",
             cols: 3,
             fields: [
-                //dịch vụ, vật tư, phụ tùng
-                { type: "text", name: "code", label: "Mã dịch vụ" },
-                { type: "text", name: "name", label: <>Tên dịch vụ <span className='text-red-500'>*</span></> },
+                // dịch vụ, vật tư, phụ tùng
+                {
+                    type: "text",
+                    name: "code",
+                    label: (v: any) =>
+                        v.loai_hang === "materials"
+                            ? "Mã vật tư"
+                            : v.loai_hang === "parts"
+                                ? "Mã phụ tùng"
+                                : "Mã dịch vụ",
+                    visibleWhen: (v: any) =>
+                        (v.loai_hang === "service" &&
+                            ["ban_cho_khach", "mua_de_ban_lai", "mua_dung_noi_bo"].includes(v.muc_dich)) ||
+                        v.loai_hang === "materials" ||
+                        v.loai_hang === "parts",
+                },
+                {
+                    type: "text",
+                    name: "name",
+                    label: (v: any) => (
+                        <>
+                            {v.loai_hang === "materials"
+                                ? "Tên vật tư"
+                                : v.loai_hang === "parts"
+                                    ? "Tên phụ tùng"
+                                    : "Tên dịch vụ"}{" "}
+                            <span className='text-red-500'>*</span>
+                        </>
+                    ),
+                    visibleWhen: (v: any) =>
+                        (v.loai_hang === "service" &&
+                            ["ban_cho_khach", "mua_de_ban_lai", "mua_dung_noi_bo"].includes(v.muc_dich)) ||
+                        v.loai_hang === "materials" ||
+                        v.loai_hang === "parts",
+                },
                 {
                     type: "select",
                     name: "dvt",
-                    label: <>Đơn vị tính <span className='text-red-500'>*</span></>,
+                    label: <>
+                        Đơn vị tính <span className='text-red-500'>*</span>
+                    </>,
                     options: [
                         { label: "Cái", value: "cai" },
                         { label: "Kg", value: "kg" },
                         { label: "Thùng", value: "thung" },
                         { label: "Bao", value: "bao" },
                     ],
+                    visibleWhen: (v: any) =>
+                        (v.loai_hang === "service" &&
+                            ["ban_cho_khach", "mua_de_ban_lai", "mua_dung_noi_bo"].includes(v.muc_dich)) ||
+                        v.loai_hang === "materials" ||
+                        v.loai_hang === "parts",
                 },
-                { type: "number", name: "gia_ban", label: "Giá bán (chưa VAT)", placeholder: "0", suffix: "VND" },
-                { type: "number", name: "gia_von", label: "Giá nhập", placeholder: "0", suffix: "VND" },
-                { type: "datetime", name: "thoi_gian_chuan", label: "Thời gian chuẩn" },
+                {
+                    type: "number",
+                    name: "gia_ban",
+                    label: "Giá bán (chưa VAT)",
+                    placeholder: "0",
+                    suffix: "VND",
+                    visibleWhen: (v: any) =>
+                        (v.loai_hang === "service" && v.muc_dich === "ban_cho_khach") ||
+                        v.loai_hang === "parts",
+                },
+                {
+                    type: "number",
+                    name: "gia_von",
+                    label: "Giá nhập",
+                    placeholder: "0",
+                    suffix: "VND",
+                    visibleWhen: (v: any) =>
+                        (v.loai_hang === "service" && v.muc_dich === "ban_cho_khach") ||
+                        v.loai_hang === "materials" ||
+                        v.loai_hang === "parts",
+                },
+                {
+                    type: "datetime",
+                    name: "thoi_gian_chuan",
+                    label: "Thời gian chuẩn",
+                    visibleWhen: (v: any) => v.loai_hang === "service" && v.muc_dich === "ban_cho_khach",
+                },
                 {
                     type: "select",
                     name: "nhom_dich_vu",
@@ -573,6 +678,9 @@ export const productServiceSchema: any = {
                         { label: "Sản phẩm bán", value: "product" },
                         { label: "Công cụ dụng cụ", value: "tool" },
                     ],
+                    visibleWhen: (v: any) =>
+                        v.loai_hang === "service" &&
+                        ["ban_cho_khach", "mua_de_ban_lai", "mua_dung_noi_bo"].includes(v.muc_dich),
                 },
                 {
                     type: "select",
@@ -583,18 +691,49 @@ export const productServiceSchema: any = {
                         { label: "Nhóm vật tư test", value: "Nhóm vật tư test" },
                         { label: "Nhóm vật tư test", value: "Nhóm vật tư test" },
                     ],
+                    visibleWhen: (v: any) => v.loai_hang === "materials",
                 },
                 {
                     type: "select",
-                    name: "nhom_vat_tu",
+                    name: "loai_vat_tu",
                     label: "Loại vật tư",
                     options: [
                         { label: "Loại vật tư test", value: "Loại vật tư test" },
                         { label: "Loại vật tư test", value: "Loại vật tư test" },
                         { label: "Loại vật tư test", value: "Loại vật tư test" },
                     ],
+                    visibleWhen: (v: any) => v.loai_hang === "materials",
                 },
-                { type: "number", name: "ton_kho_toi_thieu_thong_tin", label: "Tồn kho tối thiểu", placeholder: "0", suffix: null },
+                {
+                    type: "select",
+                    name: "nhom_phu_tung",
+                    label: "Nhóm phụ tùng",
+                    options: [
+                        { label: "Nhóm phụ tùng test", value: "Nhóm phụ tùng test" },
+                        { label: "Nhóm phụ tùng test", value: "Nhóm phụ tùng test" },
+                        { label: "Nhóm phụ tùng test", value: "Nhóm phụ tùng test" },
+                    ],
+                    visibleWhen: (v: any) => v.loai_hang === "parts",
+                },
+                {
+                    type: "select",
+                    name: "loai_phu_tung",
+                    label: "Loại phụ tùng",
+                    options: [
+                        { label: "Loại phụ tùng test", value: "Loại phụ tùng test" },
+                        { label: "Loại phụ tùng test", value: "Loại phụ tùng test" },
+                        { label: "Loại phụ tùng test", value: "Loại phụ tùng test" },
+                    ],
+                    visibleWhen: (v: any) => v.loai_hang === "parts",
+                },
+                {
+                    type: "number",
+                    name: "ton_kho_toi_thieu",
+                    label: "Tồn kho tối thiểu",
+                    placeholder: "0",
+                    suffix: null,
+                    visibleWhen: (v: any) => v.loai_hang === "parts",
+                },
             ],
         },
         {
@@ -602,10 +741,25 @@ export const productServiceSchema: any = {
             title: "Thiết lập",
             cols: 3,
             fields: [
-                { type: "checkbox", name: "isQuickSell", label: "Bán nhanh" },
-                { type: "checkbox", name: "lockSalePrice", label: "Không sửa giá bán" },
+                {
+                    type: "checkbox",
+                    name: "isQuickSell",
+                    label: "Bán nhanh",
+                    visibleWhen: (vals: any) => vals.loai_hang === "service",
+                },
+                {
+                    type: "checkbox",
+                    name: "lockSalePrice",
+                    label: "Không sửa giá bán",
+                    visibleWhen: (vals: any) => vals.loai_hang === "service",
+                },
                 { type: "checkbox", name: "isActive", label: "Còn sử dụng" },
-                { type: "checkbox", name: "ton_kho_toi_thieu_thiet_lap", label: "Tồn kho tối thiểu" },
+                {
+                    type: "checkbox",
+                    name: "ton_kho_toi_thieu_thiet_lap",
+                    label: "Tồn kho tối thiểu",
+                    visibleWhen: (vals: any) => vals.loai_hang === "materials",
+                },
             ],
         },
         {
