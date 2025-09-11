@@ -1,5 +1,5 @@
 // components/Modal/FormRendererPro.tsx
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
 
 // ===== Field components (simple, tailwind-only) =====
@@ -188,59 +188,60 @@ const FIELD_MAP: any = {
     radio: RadioField,
     datetime: DateTimeField,
 };
+
 const resolve = (fnOrVal: any, values: any) =>
-  typeof fnOrVal === "function" ? fnOrVal(values) : fnOrVal;
+    typeof fnOrVal === "function" ? fnOrVal(values) : fnOrVal;
 // Responsible for rendering a single field configuration
 const FieldRenderer = ({ field, values, setValue, errors }: any) => {
-  const Comp = FIELD_MAP[field?.type];
-  const [opts, setOpts] = useState<any>(Array.isArray(field?.options) ? field.options : []);
+    const Comp = FIELD_MAP[field?.type];
+    const [opts, setOpts] = useState<any>(Array.isArray(field?.options) ? field.options : []);
 
-  // khóa phụ thuộc options
-  const depKey = JSON.stringify((field?.dependsOn || []).map((k: string) => values[k]));
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      if (typeof field?.options === "function") {
-        try {
-          const res = await field.options(values);
-          if (active) setOpts(res ?? []);
-        } catch (e) {
-          console.error(`[options:${field?.name}]`, e);
-        }
-      }
-    })();
-    return () => { active = false; };
-  }, [depKey]); // ✅ gọn
+    // khóa phụ thuộc options
+    const depKey = JSON.stringify((field?.dependsOn || []).map((k: string) => values[k]));
+    useEffect(() => {
+        let active = true;
+        (async () => {
+            if (typeof field?.options === "function") {
+                try {
+                    const res = await field.options(values);
+                    if (active) setOpts(res ?? []);
+                } catch (e) {
+                    console.error(`[options:${field?.name}]`, e);
+                }
+            }
+        })();
+        return () => { active = false; };
+    }, [depKey]); // ✅ gọn
 
-  if (!field || !Comp) return null;
-  if (typeof field.visibleWhen === "function" && !field.visibleWhen(values)) return null;
+    if (!field || !Comp) return null;
+    if (typeof field.visibleWhen === "function" && !field.visibleWhen(values)) return null;
 
-  const common = {
-    label: resolve(field.label, values),
-    value: values[field.name],
-    onChange: (v: any) => {
-      setValue(field.name, v);
-      field.onChange?.(v, values, setValue);
-    },
-    placeholder: resolve(field.placeholder, values),
-    options: opts,
-    rows: field.rows,
-    suffix: resolve(field.suffix, values),
-    checked: !!values[field.name],
-    error: errors[field.name],
-  };
+    const common = {
+        label: resolve(field.label, values),
+        value: values[field.name],
+        onChange: (v: any) => {
+            setValue(field.name, v);
+            field.onChange?.(v, values, setValue);
+        },
+        placeholder: resolve(field.placeholder, values),
+        options: opts,
+        rows: field.rows,
+        suffix: resolve(field.suffix, values),
+        checked: !!values[field.name],
+        error: errors[field.name],
+    };
 
-  const colSpan = resolve(field.colSpan, values);
-  const colSpanClass = colSpan ? `md:col-span-${colSpan}` : "";
+    const colSpan = resolve(field.colSpan, values);
+    const colSpanClass = colSpan ? `md:col-span-${colSpan}` : "";
 
-  return (
-    <div className={colSpanClass}>
-      <Comp {...common} />
-      {errors[field.name] && (
-        <div className="mt-1 text-xs text-red-600">{errors[field.name]}</div>
-      )}
-    </div>
-  );
+    return (
+        <div className={colSpanClass}>
+            <Comp {...common} />
+            {errors[field.name] && (
+                <div className="mt-1 text-xs text-red-600">{errors[field.name]}</div>
+            )}
+        </div>
+    );
 };
 
 // ===== Small UI helpers =====
@@ -289,6 +290,7 @@ export default function FormRendererPro({
     submitLabel = "Lưu",
     onClose,
 }: any) {
+
     const sections = useMemo(() => {
         if (schema?.sections && Array.isArray(schema.sections)) return schema.sections;
         // Backward-compat: wrap flat fields into a single section
@@ -317,20 +319,37 @@ export default function FormRendererPro({
 
     // flash state per section
     const [flash, setFlash] = useState<any>({});
+
     const flashTimers = useRef<Record<string, any>>({});
     useEffect(() => () => Object.values(flashTimers.current).forEach((t) => clearTimeout(t)), []);
 
     const [activeNav, setActiveNav] = useState<any>(sections?.[0]?.key ?? "info");
-
     const defaults = useMemo(() => ({ ...(schema?.defaults ?? {}) }), [schema]);
     const [values, setValues] = useState<any>({ ...defaults, ...initialData });
     const [errors, setErrors] = useState<any>({});
     const [submitting, setSubmitting] = useState(false);
-
     useEffect(() => {
         setValues({ ...defaults, ...initialData });
         setErrors({});
     }, [initialData, defaults]);
+    const isSectionVisible = (s: any) =>
+        typeof s?.visibleWhen === "function" ? !!s.visibleWhen(values) : true;
+    // ⬇ THÊM: đổi tab đang active nếu nó bị ẩn đi do điều kiện
+    useEffect(() => {
+        const visible = sections.filter(isSectionVisible);
+        if (visible.length && !visible.some((s: any) => s.key === activeNav)) {
+            setActiveNav(visible[0].key);
+        }
+        // optional: đảm bảo state "open" có key cho section mới xuất hiện
+        setOpen((prev: any) => {
+            const next = { ...prev };
+            visible.forEach((s: any) => {
+                if (typeof next[s.key] === "undefined") next[s.key] = s.defaultOpen !== false;
+            });
+            return next;
+        });
+    }, [values, sections]); // ⬅ PHẢI có values để chạy lại khi chọn tính chất/mục đích
+
 
     const setValue = (name: string, v: any) => setValues((s: any) => ({ ...s, [name]: v }));
 
@@ -393,7 +412,7 @@ export default function FormRendererPro({
             <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[240px_1fr]">
                 {/* Sidebar */}
                 <aside className="hidden min-h-0 overflow-auto border-r bg-gray-50 p-2 md:block">
-                    {sections.map((s: any) => (
+                    {sections.filter(isSectionVisible).map((s: any) => (
                         <button
                             key={s.key}
                             onClick={() => go(s.key)}
@@ -407,7 +426,7 @@ export default function FormRendererPro({
 
                 {/* Content */}
                 <main className="min-h-0 overflow-auto bg-white p-3">
-                    {sections.map((s: any) => {
+                    {sections.filter(isSectionVisible).map((s: any) => {
                         const cols = s.cols ?? 3;
                         const gridStyle = { gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` } as any;
                         return (
@@ -538,13 +557,33 @@ export const productServiceSchema: any = {
                         { label: "Vật tư", value: "materials" },
                         { label: "Văn phòng phẩm", value: "office" },
                     ],
+                    onChange: (_val: any, _values: any, setValue: any) => {
+                        console.log('changeeeeeeeeee');
+                        const resetToEmpty = [
+                            "muc_dich",
+                            "code", "name", "dvt",
+                            "gia_ban", "gia_von", "thoi_gian_chuan",
+                            "group_service",
+                            "nhom_dich_vu", "nhom_vat_tu", "nhom_phu_tung",
+                            "loai_vat_tu", "loai_phu_tung",
+                            "ton_kho_toi_thieu",
+                        ];
+                        resetToEmpty.forEach((k) => setValue(k, ""));
+                        setValue("isQuickSell", false);
+                        setValue("lockSalePrice", false);
+                        setValue("isActive", true);
+                        setValue("images", []);
+                    },
                 },
+
             ],
+
         },
         {
             key: "muc_dich",
             title: "Mục đích sử dụng",
             cols: 1,
+            visibleWhen: (v: any) => !!v.loai_hang,
             fields: [
                 {
                     name: "muc_dich",
@@ -588,6 +627,7 @@ export const productServiceSchema: any = {
             key: "info",
             title: "Thông tin chung",
             cols: 3,
+            visibleWhen: (v: any) => !!v.loai_hang && !!v.muc_dich,
             fields: [
                 // dịch vụ, vật tư, phụ tùng
                 {
@@ -740,6 +780,7 @@ export const productServiceSchema: any = {
             key: "settings",
             title: "Thiết lập",
             cols: 3,
+            visibleWhen: (v: any) => !!v.loai_hang && !!v.muc_dich,
             fields: [
                 {
                     type: "checkbox",
@@ -766,6 +807,7 @@ export const productServiceSchema: any = {
             key: "images",
             title: "Hình ảnh",
             cols: 6,
+            visibleWhen: (v: any) => !!v.loai_hang && !!v.muc_dich,
             fields: [{ type: "images", name: "images", label: "Hình ảnh (tối đa 6)", slots: 6, colSpan: 6 }],
         },
     ],
