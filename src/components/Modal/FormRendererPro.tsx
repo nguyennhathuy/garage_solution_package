@@ -177,6 +177,229 @@ const ImagesField = ({ label, value = [], onChange, slots = 6 }: any) => {
     );
 };
 
+// ===== Inline Table/Grid field (có ô computed & canh phải) =====
+const TableField = ({
+    label,
+    value = [],
+    onChange,
+    columns = [],
+    addRowLabel = "Thêm dòng",
+    defaultRow,
+    formValues, // toàn bộ form values - nếu options là function
+    error,
+    footer, // optional: { showSumFor: 'tien_nhap' }
+}: any) => {
+    const rows = Array.isArray(value) ? value : [];
+
+    const fmt = (n: any) => {
+        if (n === "" || n === null || n === undefined || Number.isNaN(n)) return "";
+        const x = typeof n === "number" ? n : Number(n);
+        if (Number.isNaN(x)) return "";
+        return new Intl.NumberFormat("vi-VN").format(x);
+    };
+
+    const makeNewRow = () => {
+        if (typeof defaultRow === "function") return defaultRow(formValues);
+        const r: any = {};
+        (columns || []).forEach((c: any) => {
+            if (c.type === "number") r[c.key] = c.default ?? 0;
+            else r[c.key] = c.default ?? "";
+        });
+        return r;
+    };
+
+    const updateCell = (ri: number, key: string, v: any) => {
+        const next = [...rows];
+        next[ri] = { ...(next[ri] || {}), [key]: v };
+        onChange(next);
+    };
+
+    const removeRow = (ri: number) => {
+        const next = [...rows];
+        next.splice(ri, 1);
+        onChange(next);
+    };
+
+    const addRow = () => onChange([...(rows || []), makeNewRow()]);
+
+    const getOptions = (col: any, row: any, idx: number) => {
+        if (typeof col?.options === "function") {
+            try {
+                return col.options({ formValues, row, rowIndex: idx }) ?? [];
+            } catch {
+                return [];
+            }
+        }
+        return col?.options ?? [];
+    };
+
+    const computeVal = (col: any, row: any) => {
+        if (typeof col?.compute === "function") {
+            try {
+                return col.compute({ row, formValues });
+            } catch {
+                return "";
+            }
+        }
+        return "";
+    };
+
+    const alignClass = (a?: "left" | "center" | "right") =>
+        a === "right" ? "text-right" : a === "center" ? "text-center" : "text-left";
+
+    const Cell = ({ col, row, ri }: any) => {
+        const val = row?.[col.key];
+        const base =
+            "w-full rounded-lg border px-2 py-1 text-sm border-gray-300 focus:outline-none focus:ring-1 focus:ring-indigo-500";
+
+        if (col.type === "computed") {
+            const v = computeVal(col, row);
+            return <div className={`${alignClass(col.align)} text-gray-900`}>{fmt(v)}</div>;
+        }
+
+        if (col.type === "select") {
+            const opts = getOptions(col, row, ri);
+            return (
+                <select
+                    className={`${base} ${alignClass(col.align)}`}
+                    value={val ?? ""}
+                    onChange={(e) => updateCell(ri, col.key, e.target.value)}
+                >
+                    <option value="">{col.placeholder ?? "-- Chọn --"}</option>
+                    {opts.map((o: any) => (
+                        <option key={String(o.value)} value={o.value}>
+                            {o.label}
+                        </option>
+                    ))}
+                </select>
+            );
+        }
+
+        if (col.type === "number") {
+            return (
+                <input
+                    type="number"
+                    inputMode="decimal"
+                    className={`${base} ${alignClass(col.align)}`}
+                    value={val ?? ""}
+                    onChange={(e) => updateCell(ri, col.key, e.target.value === "" ? "" : Number(e.target.value))}
+                    placeholder={col.placeholder}
+                />
+            );
+        }
+
+        // default: text
+        return (
+            <input
+                type="text"
+                className={`${base} ${alignClass(col.align)}`}
+                value={val ?? ""}
+                onChange={(e) => updateCell(ri, col.key, e.target.value)}
+                placeholder={col.placeholder}
+            />
+        );
+    };
+
+    const sumForKey = (key?: string) => {
+        if (!key) return 0;
+        return rows.reduce((acc: number, r: any) => {
+            const col = (columns || []).find((c: any) => c.key === key);
+            const v = col?.type === "computed" ? computeVal(col, r) : r?.[key];
+            const num = typeof v === "number" ? v : Number(v || 0);
+            return acc + (Number.isNaN(num) ? 0 : num);
+        }, 0);
+    };
+
+    return (
+        <div>
+            {label && <label className="block text-xs text-gray-600 mb-1">{label}</label>}
+
+            <div className="rounded-xl border border-gray-200 overflow-hidden">
+                <div className="flex items-center justify-between bg-slate-50 px-3 py-2">
+                    <div className="text-sm font-semibold text-gray-900">{label}</div>
+                    <button
+                        type="button"
+                        onClick={addRow}
+                        className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-100"
+                    >
+                        {addRowLabel}
+                    </button>
+                </div>
+
+                <div className="w-full overflow-auto">
+                    <table className="w-full text-sm">
+                        <thead className="bg-gray-50">
+                            <tr>
+                                {(columns || []).map((c: any) => (
+                                    <th
+                                        key={c.key}
+                                        style={c.width ? { width: c.width } : undefined}
+                                        className={`px-3 py-2 ${alignClass(c.align)} font-medium text-gray-700 border-b`}
+                                    >
+                                        {c.label}
+                                    </th>
+                                ))}
+                                <th className="px-3 py-2 text-right font-medium text-gray-700 border-b w-12"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {rows.length === 0 ? (
+                                <tr>
+                                    <td colSpan={(columns || []).length + 1} className="px-3 py-3 text-center text-gray-500">
+                                        Chưa có dữ liệu. Bấm “{addRowLabel}”.
+                                    </td>
+                                </tr>
+                            ) : (
+                                rows.map((row: any, ri: number) => (
+                                    <tr key={ri} className="odd:bg-white even:bg-gray-50">
+                                        {(columns || []).map((c: any) => (
+                                            <td key={c.key} className={`px-3 py-2 align-middle border-b ${alignClass(c.align)}`}>
+                                                <Cell col={c} row={row} ri={ri} />
+                                            </td>
+                                        ))}
+                                        <td className="px-3 py-2 border-b text-right">
+                                            <button
+                                                type="button"
+                                                onClick={() => removeRow(ri)}
+                                                className="rounded-md border border-gray-300 bg-white px-2 py-1 hover:bg-gray-100"
+                                                title="Xóa dòng"
+                                            >
+                                                X
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+
+                        {footer?.showSumFor && (
+                            <tfoot>
+                                <tr className="bg-gray-50">
+                                    {(columns || []).map((c: any) => {
+                                        if (c.key === footer.showSumFor) {
+                                            return (
+                                                <td key={c.key} className={`px-3 py-2 font-semibold ${alignClass("right")} border-t`}>
+                                                    {fmt(sumForKey(c.key))}
+                                                </td>
+                                            );
+                                        }
+                                        return <td key={c.key} className="px-3 py-2 border-t" />;
+                                    })}
+                                    <td className="px-3 py-2 border-t" />
+                                </tr>
+                            </tfoot>
+                        )}
+                    </table>
+                </div>
+            </div>
+
+            {error && <div className="mt-1 text-xs text-red-600">{error}</div>}
+        </div>
+    );
+};
+
+
+
 const FIELD_MAP: any = {
     text: TextField,
     number: NumberField,
@@ -187,6 +410,7 @@ const FIELD_MAP: any = {
     images: ImagesField,
     radio: RadioField,
     datetime: DateTimeField,
+    table: TableField,
 };
 
 const resolve = (fnOrVal: any, values: any) =>
@@ -230,13 +454,20 @@ const FieldRenderer = ({ field, values, setValue, errors }: any) => {
         checked: !!values[field.name],
         error: errors[field.name],
     };
-
+    const extraProps: any = {};
+    if (field.type === "table") {
+        extraProps.columns = resolve(field.columns, values);
+        extraProps.addRowLabel = field.addRowLabel;
+        extraProps.defaultRow = field.defaultRow;
+        extraProps.formValues = values;
+        extraProps.footer = field.footer; // nếu muốn hiển thị tổng
+    }
     const colSpan = resolve(field.colSpan, values);
     const colSpanClass = colSpan ? `md:col-span-${colSpan}` : "";
 
     return (
         <div className={colSpanClass}>
-            <Comp {...common} />
+            <Comp {...common} {...extraProps} />
             {errors[field.name] && (
                 <div className="mt-1 text-xs text-red-600">{errors[field.name]}</div>
             )}
@@ -510,7 +741,9 @@ export const productServiceSchema: any = {
         isQuickSell: false,
         lockSalePrice: false,
         isActive: true,
-        images: []
+        images: [],
+        dinh_muc_vat_tu: [],
+        dinh_muc_cong: [],
     },
     validate: (v: any) => {
         const err: any = {};
@@ -540,6 +773,8 @@ export const productServiceSchema: any = {
         is_quick_sell: !!v.isQuickSell,
         lock_sale_price: !!v.lockSalePrice,
         is_active: !!v.isActive,
+        dinh_muc_vat_tu: Array.isArray(v.dinh_muc_vat_tu) ? v.dinh_muc_vat_tu : [],
+        dinh_muc_cong: Array.isArray(v.dinh_muc_cong) ? v.dinh_muc_cong : [],
     }),
     sections: [
         {
@@ -802,6 +1037,111 @@ export const productServiceSchema: any = {
                 },
             ],
         },
+        {
+            key: "dinh_muc",
+            title: "Định mức",
+            cols: 1,
+            visibleWhen: (v: any) => !!v.loai_hang && !!v.muc_dich,
+            fields: [
+                // ===== BẢNG 1: Định mức vật tư (giống ảnh) =====
+                {
+                    type: "table",
+                    name: "dinh_muc_vat_tu",
+                    label: "Định mức vật tư",
+                    addRowLabel: "Thêm dòng",
+                    footer: { showSumFor: "tien_nhap" }, // hiện tổng cột Tiền nhập
+                    defaultRow: () => ({
+                        ma_vt: "",
+                        ten_vt: "",
+                        dvt: "",
+                        gia_nhap: "",
+                        sl_nhap: "",
+                        tk_vt: "",
+                    }),
+                    columns: [
+                        { key: "ma_vt", label: "Mã vật tư", type: "text", width: 160 },
+                        { key: "ten_vt", label: "Tên vật tư", type: "text", width: 260 },
+                        {
+                            key: "dvt",
+                            label: "ĐVT",
+                            type: "select",
+                            width: 100,
+                            options: [
+                                { label: "lít", value: "lít" },
+                                { label: "kg", value: "kg" },
+                                { label: "cái", value: "cái" },
+                                { label: "thùng", value: "thùng" },
+                            ],
+                        },
+                        { key: "gia_nhap", label: "Giá nhập", type: "number", width: 140, align: "right", placeholder: "0" },
+                        { key: "sl_nhap", label: "SL nhập", type: "number", width: 120, align: "right", placeholder: "0" },
+                        {
+                            key: "tien_nhap",
+                            label: "Tiền nhập",
+                            type: "computed",
+                            width: 160,
+                            align: "right",
+                            // Tiền nhập = Giá nhập * SL nhập
+                            compute: ({ row }: any) => {
+                                const g = Number(row?.gia_nhap || 0);
+                                const q = Number(row?.sl_nhap || 0);
+                                return g * q;
+                            },
+                        },
+                        { key: "tk_vt", label: "TK vật tư", type: "text", width: 120 },
+                    ],
+                },
+
+                // ===== BẢNG 2: Định mức vật tư phụ (cùng cấu trúc) =====
+                {
+                    type: "table",
+                    name: "dinh_muc_vat_tu_phu",
+                    label: "Định mức vật tư (khác)",
+                    addRowLabel: "Thêm dòng",
+                    footer: { showSumFor: "tien_nhap" },
+                    defaultRow: () => ({
+                        ma_vt: "",
+                        ten_vt: "",
+                        dvt: "",
+                        gia_nhap: "",
+                        sl_nhap: "",
+                        tk_vt: "",
+                    }),
+                    columns: [
+                        { key: "ma_vt", label: "Mã vật tư", type: "text", width: 160 },
+                        { key: "ten_vt", label: "Tên vật tư", type: "text", width: 260 },
+                        {
+                            key: "dvt",
+                            label: "ĐVT",
+                            type: "select",
+                            width: 100,
+                            options: [
+                                { label: "lít", value: "lít" },
+                                { label: "kg", value: "kg" },
+                                { label: "cái", value: "cái" },
+                                { label: "thùng", value: "thùng" },
+                            ],
+                        },
+                        { key: "gia_nhap", label: "Giá nhập", type: "number", width: 140, align: "right", placeholder: "0" },
+                        { key: "sl_nhap", label: "SL nhập", type: "number", width: 120, align: "right", placeholder: "0" },
+                        {
+                            key: "tien_nhap",
+                            label: "Tiền nhập",
+                            type: "computed",
+                            width: 160,
+                            align: "right",
+                            compute: ({ row }: any) => {
+                                const g = Number(row?.gia_nhap || 0);
+                                const q = Number(row?.sl_nhap || 0);
+                                return g * q;
+                            },
+                        },
+                        { key: "tk_vt", label: "TK vật tư", type: "text", width: 120 },
+                    ],
+                },
+            ],
+        },
+
         {
             key: "images",
             title: "Hình ảnh",
